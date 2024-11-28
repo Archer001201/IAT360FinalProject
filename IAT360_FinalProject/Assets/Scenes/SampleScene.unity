@@ -2095,7 +2095,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -381.58408}
+  m_AnchoredPosition: {x: 0, y: -381.58405}
   m_SizeDelta: {x: -50, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &383683970
@@ -5094,11 +5094,13 @@ MonoBehaviour:
   resultPanel: {fileID: 777237328}
   tipsPanel: {fileID: 1323122858}
   informationPanel: {fileID: 70636276}
+  actionPanel: {fileID: 368048246}
   logText: {fileID: 381371710}
   resultText: {fileID: 383683970}
   actionText: {fileID: 1971030775}
   totalActionCount: 5
   isGenerating: 0
+  isIdentified: 0
 --- !u!4 &1106383093
 Transform:
   m_ObjectHideFlags: 0

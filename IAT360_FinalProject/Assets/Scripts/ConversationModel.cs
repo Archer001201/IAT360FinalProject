@@ -36,6 +36,7 @@ public class ConversationModel : MonoBehaviour
     public GameObject resultPanel;
     public GameObject tipsPanel;
     public GameObject informationPanel;
+    public GameObject actionPanel;
     public TextHeightAdjustment logText;
     public TextHeightAdjustment resultText;
     public TextMeshProUGUI actionText;
@@ -43,6 +44,7 @@ public class ConversationModel : MonoBehaviour
     [Header("State")] 
     public int totalActionCount;
     public bool isGenerating;
+    public bool isIdentified;
     private int _takenActionCout;
     private GameState _state;
     
@@ -61,6 +63,7 @@ public class ConversationModel : MonoBehaviour
         tipsPanel.SetActive(false);
         informationPanel.SetActive(false);
         resultButton.gameObject.SetActive(false);
+        actionPanel.SetActive(false);
         
         var timestamp = System.DateTime.Now.ToString("yyyyMMddHHmmss");
         _messages.Add(new Dictionary<string, string>
@@ -119,6 +122,17 @@ public class ConversationModel : MonoBehaviour
         {
             iBtn.onClick.AddListener(() =>
             {
+                if (isGenerating)
+                {
+                    return;
+                }
+                
+                if (isIdentified)
+                {
+                    StartCoroutine(ShowTips("Culprit is identified"));
+                    return; 
+                }
+                
                 var suspect = iBtn.GetComponentInChildren<TextMeshProUGUI>().text;
                 var str = "The Culprit is " + culprit + ".";
                 if (suspect.Contains(culprit) || culprit.Contains(suspect))
@@ -132,6 +146,7 @@ public class ConversationModel : MonoBehaviour
 
                 informationPanel.GetComponentInChildren<TextMeshProUGUI>().text = str;
                 resultButton.gameObject.SetActive(true);
+                isIdentified = true;
             });
         }
         
@@ -167,6 +182,12 @@ public class ConversationModel : MonoBehaviour
             StartCoroutine(ShowTips("No more actions"));
             return;
         }
+        
+        if (isIdentified)
+        {
+            StartCoroutine(ShowTips("Culprit is identified"));
+            return;
+        }
 
         _takenActionCout++;
         actionText.text = "Action Remain: " + (totalActionCount - _takenActionCout);
@@ -177,7 +198,7 @@ public class ConversationModel : MonoBehaviour
     private void RequestResult()
     {
         AddMessage("user", "Explain in detail about the motive of culprit and how to commit the crime. Start the explain with ***Start*** and end with ***End***");
-        StartCoroutine(SendRequest(500));
+        StartCoroutine(SendRequest(1000));
     }
 
     private void AddMessage(string role, string content)
@@ -252,7 +273,7 @@ public class ConversationModel : MonoBehaviour
                     culprit = ExtractSection(response, "**Culprit**", "**CulpritEnd**").Replace("\\n", "").Replace("\\r", "");
                     firstButton.onClick.Invoke();
                     logText.UpdateText(_responseLog);
-
+                    actionPanel.SetActive(true);
                     _state = GameState.Playing;
                     break;
                 }
