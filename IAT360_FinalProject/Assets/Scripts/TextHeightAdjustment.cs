@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class TextHeightAdjustment : MonoBehaviour
 {
-    private TextMeshProUGUI _tmpText; // 绑定 TextMeshPro 对象
-    private RectTransform _contentRect; // 绑定 Content 的 RectTransform
+    private TextMeshProUGUI _tmpText;
+    private RectTransform _contentRect;
 
     private void Awake()
     {
