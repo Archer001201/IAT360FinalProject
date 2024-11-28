@@ -5,6 +5,7 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class ConversationModel : MonoBehaviour
@@ -23,6 +24,8 @@ public class ConversationModel : MonoBehaviour
     public Button startButton;
     public Button firstButton;
     public Button resultButton;
+    public Button quitButton;
+    public List<Button> titleButtons;
     public List<Button> areaButtons;
     public List<Button> suspectButtons;
     public List<Button> identifyButtons;
@@ -35,6 +38,7 @@ public class ConversationModel : MonoBehaviour
     public GameObject informationPanel;
     public TextHeightAdjustment logText;
     public TextHeightAdjustment resultText;
+    public TextMeshProUGUI actionText;
 
     [Header("State")] 
     public int totalActionCount;
@@ -58,12 +62,14 @@ public class ConversationModel : MonoBehaviour
         informationPanel.SetActive(false);
         resultButton.gameObject.SetActive(false);
         
+        var timestamp = System.DateTime.Now.ToString("yyyyMMddHHmmss");
         _messages.Add(new Dictionary<string, string>
         {
             { "role", "system" },
             {
                 "content", "Let's play a detective game." +
-                           "Please answer the following case details, 5 areas to explore, and 5 suspects in the given format: " +
+                           $"Create a unique detective story first. This session ID is {timestamp}." +
+                           "Please provide the following case details, 5 areas to explore, and 5 suspects in the given format: " +
                            "--- " + "***Start***" +
                            "**Case Background** " +
                            "Case Description: [Description here] " +
@@ -77,6 +83,8 @@ public class ConversationModel : MonoBehaviour
                            "Ensure the information is suitable for a detective game with a clear and concise format. Keep the 'Areas' section as simple location names, and in the 'Suspects' section include only the names and roles without additional explanations."
             }
         });
+
+        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCout);
     }
 
     private void Start()
@@ -113,7 +121,7 @@ public class ConversationModel : MonoBehaviour
             {
                 var suspect = iBtn.GetComponentInChildren<TextMeshProUGUI>().text;
                 var str = "The Culprit is " + culprit + ".";
-                if (suspect.Contains(culprit))
+                if (suspect.Contains(culprit) || culprit.Contains(suspect))
                 {
                     str += " Right.";
                 }
@@ -135,6 +143,16 @@ public class ConversationModel : MonoBehaviour
             gameViewPanel.SetActive(false);
             resultPanel.SetActive(true);
         });
+
+        foreach (var tBtn in titleButtons)
+        {
+            tBtn.onClick.AddListener(() =>
+            {
+                SceneManager.LoadScene("SampleScene");
+            });
+        }
+        
+        quitButton.onClick.AddListener(Application.Quit);
     }
     
     private void RequestClue(string type, string target)
@@ -151,6 +169,7 @@ public class ConversationModel : MonoBehaviour
         }
 
         _takenActionCout++;
+        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCout);
         AddMessage("user", $"Provide a piece of clue about the {type}: {target}, start with ***Start*** and end with ***End***");
         StartCoroutine(SendRequest(300));
     }
@@ -193,6 +212,8 @@ public class ConversationModel : MonoBehaviour
         var json = "{\"model\": \"Qwen/Qwen2.5-Coder-32B-Instruct\"," +
                    "\"messages\": [{\"role\": \"user\", \"content\": \"" + prompt + "\"}]," +
                    "\"max_tokens\": " + maxTokens + "," +
+                   "\"temperature\": 0.8," +
+                   "\"top_p\": 0.9," +
                    "\"stream\": false}";
 
         using var webRequest = new UnityWebRequest(apiURL, "POST");
