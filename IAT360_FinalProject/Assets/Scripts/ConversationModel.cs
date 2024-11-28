@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -13,15 +14,13 @@ public class ConversationModel : MonoBehaviour
     public string apiKey;
     
     [Header("Prompts")]
-    [TextArea] public string currentPrompt;
-    [TextArea] public List<string> responseList;
-    [HideInInspector] public string allResponses;
-    [HideInInspector] public string startPrompt;
-    [HideInInspector] public string areaPrompt;
-    [HideInInspector] public string suspectPrompt;
+    public int maxContextLength = 10;
+    private readonly List<Dictionary<string, string>> _messages = new();
+    private string _responseLog;
 
     [Header("Buttons")] 
     public Button startButton;
+    public Button firstButton;
     public List<Button> areaButtons;
     public List<Button> suspectButtons;
 
@@ -30,7 +29,12 @@ public class ConversationModel : MonoBehaviour
     public GameObject gameViewPanel;
     public GameObject tipsPanel;
     public GameObject informationPanel;
+    public TextHeightAdjustment logText;
 
+    [Header("State")] 
+    public int totalActionCount;
+    public bool isGenerating;
+    private int _takenActionCout;
     private GameState _state;
     
     private enum GameState
@@ -47,33 +51,34 @@ public class ConversationModel : MonoBehaviour
         tipsPanel.SetActive(false);
         informationPanel.SetActive(false);
         
-        startPrompt = "Please answer the following case details, areas to explore, and suspects in the given format: " +
-                      "--- " + "***Start***" +
-                      "**Case Background** " +
-                      "Case Description: [Description here] " +
-                      "Victim Information: [Description here] " +
-                      "**Areas** " +
-                      "[Area 1] [Area 2] [Area 3] ... " +
-                      "**Suspects** " +
-                      "[Name 1] - [Role] [Name 2] - [Role] [Name 3] - [Role] ... " +
-                      "**Culprit** " +
-                      "[Name of the culprit] - [Explain the motive and how they committed the crime] " +
-                      "***End***" + "--- " +
-                      "Ensure the information is suitable for a detective game with a clear and concise format. Keep the 'Areas' section as simple location names, and in the 'Suspects' section include only the names and roles without additional explanations.";
-        areaPrompt = "Please answer the clue about the case from an area based on the given premise and in the given format: " +
-                     "premise: " + allResponses +
-                     "--- " + "***Start***" + "[Area] - [Detailed Clue]" + "***End***" + "---";
-        suspectPrompt = "Please answer the clue about the case from a suspect based on the given premise and in the given format: " +
-                        "premise: " + allResponses +
-                        "--- " + "***Start***" + "[Suspect] - [Detailed Clue]" + "***End***" + "---";
+        _messages.Add(new Dictionary<string, string>
+        {
+            { "role", "system" },
+            {
+                "content", "Let's play a detective game." +
+                           "Please answer the following case details, areas to explore, and suspects in the given format: " +
+                           "--- " + "***Start***" +
+                           "**Case Background** " +
+                           "Case Description: [Description here] " +
+                           "Victim Information: [Description here] " +
+                           "**Areas** " +
+                           "[Area 1] [Area 2] [Area 3] ... " +
+                           "**Suspects** " +
+                           "[Name 1] - [Role] [Name 2] - [Role] [Name 3] - [Role] ... " +
+                           "**Culprit** " +
+                           "[Name of the culprit] - [Explain the motive and how they committed the crime] " +
+                           "***End***" + "--- " +
+                           "Ensure the information is suitable for a detective game with a clear and concise format. Keep the 'Areas' section as simple location names, and in the 'Suspects' section include only the names and roles without additional explanations."
+            }
+        });
     }
 
     private void Start()
     {
         startButton.onClick.AddListener(() =>
         {
-            currentPrompt = startPrompt;
-            StartCoroutine(SendRequest(currentPrompt,500));
+            AddMessage("user", "Provide the case background.");
+            StartCoroutine(SendRequest(500));
             titlePanel.SetActive(false);
             gameViewPanel.SetActive(true);
         });
@@ -82,8 +87,8 @@ public class ConversationModel : MonoBehaviour
         {
             aBtn.onClick.AddListener(() =>
             {
-                currentPrompt = areaPrompt + " Area to explore: " + aBtn.GetComponentInChildren<TextMeshProUGUI>().text;
-                StartCoroutine(SendRequest(currentPrompt,300));
+                var area = aBtn.GetComponentInChildren<TextMeshProUGUI>().text;
+                RequestClue("Area", area);
             });
         }
         
@@ -91,18 +96,59 @@ public class ConversationModel : MonoBehaviour
         {
             sBtn.onClick.AddListener(() =>
             {
-                currentPrompt = suspectPrompt + " Suspect to ask: " + sBtn.GetComponentInChildren<TextMeshProUGUI>().text;
-                StartCoroutine(SendRequest(currentPrompt,300));
+                var suspect = sBtn.GetComponentInChildren<TextMeshProUGUI>().text;
+                RequestClue("Suspect", suspect);
             });
         }
     }
     
-    private IEnumerator SendRequest(string prompt, int maxTokens)
+    private void RequestClue(string type, string target)
     {
+        if (isGenerating)
+        {
+            return;
+        }
+        
+        if (_takenActionCout > totalActionCount - 1)
+        {
+            StartCoroutine(ShowTips("No more actions"));
+            return;
+        }
+
+        _takenActionCout++;
+        AddMessage("user", $"Provide a piece of clue about the {type}: {target}, start with ***Start*** and end with ***End***");
+        StartCoroutine(SendRequest(300));
+    }
+
+    private void AddMessage(string role, string content)
+    {
+        _messages.Add(new Dictionary<string, string>
+        {
+            { "role", role },
+            { "content", content }
+        });
+
+        if (_messages.Count > maxContextLength)
+        {
+            _messages.RemoveAt(1);
+        }
+    }
+    
+    private string ConstructPrompt()
+    {
+        var prompt = _messages.Aggregate("", (current, message) => current + $"{message["role"]}: {message["content"]} --- ");
+        prompt += "Assistant:";
+        return prompt;
+    }
+    
+    private IEnumerator SendRequest(int maxTokens)
+    {
+        isGenerating = true;
         tipsPanel.GetComponentInChildren<TextMeshProUGUI>().text = "Generating ... ...";
         tipsPanel.SetActive(true);
         informationPanel.SetActive(false);
         
+        var prompt = ConstructPrompt();
         var json = "{\"model\": \"Qwen/Qwen2.5-Coder-32B-Instruct\"," +
                    "\"messages\": [{\"role\": \"user\", \"content\": \"" + prompt + "\"}]," +
                    "\"max_tokens\": " + maxTokens + "," +
@@ -122,47 +168,37 @@ public class ConversationModel : MonoBehaviour
         }
         else
         {
-            Debug.Log("Received: " + webRequest.downloadHandler.text);
-            ParseContent(webRequest.downloadHandler.text);
+            var response = ExtractSection(webRequest.downloadHandler.text, "***Start***", "***End***");
+            AddMessage("assistant", response);
+            
+            if (_state == GameState.Start)
+            {
+                var caseBackground = ExtractSection(response, "**Case Background**", "**Areas**");
+                informationPanel.GetComponentInChildren<TextMeshProUGUI>().text = caseBackground;
+                _responseLog += caseBackground;
+
+                var areas = ExtractSection(response, "**Areas**", "**Suspects**");
+                UpdateButtons(areas, areaButtons);
+
+                var suspects = ExtractSection(response, "**Suspects**", "**Culprit**");
+                UpdateButtons(suspects, suspectButtons);
+
+                _state = GameState.Playing;
+                
+            }
+            else
+            {
+                informationPanel.GetComponentInChildren<TextMeshProUGUI>().text = response;
+                _responseLog += response;
+            }
+            
+            logText.UpdateText(_responseLog);
+            firstButton.onClick.Invoke();
         }
         
         tipsPanel.SetActive(false);
         informationPanel.SetActive(true);
-    }
-    
-    private void ParseContent(string content)
-    {
-        if (content == string.Empty)
-        {
-            return;
-        }
-
-        var response = ExtractSection(content, "***Start***", "***End***");
-        responseList.Add(response);
-
-        if (_state == GameState.Start)
-        {
-            // 提取背景信息
-            var caseBackground = ExtractSection(content, "**Case Background**", "**Areas**");
-            informationPanel.GetComponentInChildren<TextMeshProUGUI>().text = caseBackground;
-
-            // 提取区域
-            var areas = ExtractSection(content, "**Areas**", "**Suspects**");
-            UpdateButtons(areas, areaButtons);
-        
-            // 提取嫌疑人
-            var suspects = ExtractSection(content, "**Suspects**", "**Culprit**");
-            UpdateButtons(suspects, suspectButtons);
-
-            _state = GameState.Playing;
-        }
-        else
-        {
-            informationPanel.GetComponentInChildren<TextMeshProUGUI>().text = response;
-        }
-        
-        allResponses += response;
-        Debug.Log("all response: " + allResponses);
+        isGenerating = false;
     }
     
     private static string ExtractSection(string content, string startMarker, string endMarker)
@@ -186,5 +222,12 @@ public class ConversationModel : MonoBehaviour
             }
         }
     }
-    
+
+    private IEnumerator ShowTips(string content)
+    {
+        tipsPanel.SetActive(true);
+        tipsPanel.GetComponentInChildren<TextMeshProUGUI>().text = content;
+        yield return new WaitForSeconds(2);
+        tipsPanel.SetActive(false);
+    }
 }
