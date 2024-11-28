@@ -45,7 +45,7 @@ public class ConversationModel : MonoBehaviour
     public int totalActionCount;
     public bool isGenerating;
     public bool isIdentified;
-    private int _takenActionCout;
+    private int _takenActionCount;
     private GameState _state;
     
     private enum GameState
@@ -65,7 +65,7 @@ public class ConversationModel : MonoBehaviour
         resultButton.gameObject.SetActive(false);
         actionPanel.SetActive(false);
         
-        var timestamp = System.DateTime.Now.ToString("yyyyMMddHHmmss");
+        var timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         _messages.Add(new Dictionary<string, string>
         {
             { "role", "system" },
@@ -81,13 +81,13 @@ public class ConversationModel : MonoBehaviour
                            "[Area 1] [Area 2] [Area 3] ... " +
                            "**Suspects** " +
                            "[Name 1] - [Role] [Name 2] - [Role] [Name 3] - [Role] ... " +
-                           "**Culprit** " + "[Name of the culprit] " + "**CulpritEnd** " +
+                           "**Culprit** " + "[Name of the culprit, formation follow the suspect above] " + "**CulpritEnd** " +
                            "***End***" + "--- " +
                            "Ensure the information is suitable for a detective game with a clear and concise format. Keep the 'Areas' section as simple location names, and in the 'Suspects' section include only the names and roles without additional explanations."
             }
         });
 
-        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCout);
+        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCount);
     }
 
     private void Start()
@@ -177,7 +177,7 @@ public class ConversationModel : MonoBehaviour
             return;
         }
         
-        if (_takenActionCout > totalActionCount - 1)
+        if (_takenActionCount > totalActionCount - 1)
         {
             StartCoroutine(ShowTips("No more actions"));
             return;
@@ -189,15 +189,16 @@ public class ConversationModel : MonoBehaviour
             return;
         }
 
-        _takenActionCout++;
-        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCout);
+        _takenActionCount++;
+        actionText.text = "Action Remain: " + (totalActionCount - _takenActionCount);
         AddMessage("user", $"Provide a piece of clue about the {type}: {target}, start with ***Start*** and end with ***End***");
         StartCoroutine(SendRequest(300));
     }
 
     private void RequestResult()
     {
-        AddMessage("user", "Explain in detail about the motive of culprit and how to commit the crime. Start the explain with ***Start*** and end with ***End***");
+        AddMessage("user", $"The culprit is {culprit}. " + 
+                           "Explain in detail about the motive of culprit and how to commit the crime. Start the explain with ***Start*** and end with ***End***");
         StartCoroutine(SendRequest(1000));
     }
 
