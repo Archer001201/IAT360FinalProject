@@ -324,4 +324,9 @@ public class ConversationModel : MonoBehaviour
         yield return new WaitForSeconds(2);
         tipsPanel.SetActive(false);
     }
+
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
 }
