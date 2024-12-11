@@ -134,7 +134,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      detective-1920-x-1040-background-8f0tzvz9go3pjfli_0: -8816638808895598819
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
